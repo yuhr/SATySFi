@@ -19,3 +19,5 @@ val close_with_bezier : point -> point -> t -> path
 val starting_point : t -> point
 
 val current_point : t -> point
+
+val current_tangent : t -> (point * point)

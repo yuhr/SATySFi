@@ -101,6 +101,14 @@ let shift_element v grelem =
   | HorzText(pt, textvalue)                   -> HorzText(pt +@% v, textvalue)
 
 
+let rotate_element c t grelem =
+  match grelem with
+  | Fill(color, pathlst)                      -> Fill(color, pathlst |> List.map (rotate_path c t))
+  | Stroke(thkns, color, pathlst)             -> Stroke(thkns, color, pathlst |> List.map (rotate_path c t))
+  | DashedStroke(thkns, dash, color, pathlst) -> DashedStroke(thkns, dash, color, pathlst |> List.map (rotate_path c t))
+  | HorzText(pt, textvalue)                   -> HorzText(rotate_around pt c t, textvalue)
+
+
 let get_element_bbox textbboxf grelem =
   match grelem with
   | Fill(_, pathlst)

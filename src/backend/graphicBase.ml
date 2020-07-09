@@ -21,6 +21,16 @@ type path =
 let (+@%) (x, y) (vx, vy) =
   (x +% vx, y +% vy)
 
+let (-@%) (x, y) (vx, vy) =
+  (x -% vx, y -% vy)
+
+let rotate (x, y) t =
+  (x *% cos t -% y *% sin t,
+   x *% sin t +% y *% cos t)
+
+let rotate_around pt c t =
+  (rotate (pt -@% c) t) +@% c
+
 
 let shift_path_element v pe =
   match pe with
@@ -41,6 +51,29 @@ let shift_path v path =
         )
       in
         GeneralPath(pt0 +@% v, pelst |> List.map (shift_path_element v), cycleopt_s)
+
+
+let rotate_path_element c t pe =
+  match pe with
+  | LineTo(pt)                  ->
+    let newpt = rotate_around pt c t in
+    LineTo(newpt)
+  | CubicBezierTo(pt1, pt2, pt) -> CubicBezierTo(rotate_around pt1 c t, rotate_around pt2 c t, rotate_around pt c t)
+
+
+let rotate_path c t path =
+  match path with
+  | Rectangle(pt1, pt2) ->
+      Rectangle(rotate_around pt1 c t, rotate_around pt2 c t)
+
+  | GeneralPath(pt0, pelst, cycleopt) ->
+      let cycleopt_s =
+        cycleopt |> option_map (function
+          | LineTo(()) as l             -> l
+          | CubicBezierTo(pt1, pt2, ()) -> CubicBezierTo(rotate_around pt1 c t, rotate_around pt2 c t, ())
+        )
+      in
+        GeneralPath(rotate_around pt0 c t, pelst |> List.map (rotate_path_element c t), cycleopt_s)
 
 
 let bezier_bbox (x0, y0) (x1, y1) (x2, y2) (x3, y3) =

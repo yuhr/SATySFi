@@ -46,3 +46,14 @@ let current_point prepath =
   | []                           -> pt0
   | LineTo(pt) :: _              -> pt
   | CubicBezierTo(_, _, pt) :: _ -> pt
+
+let current_tangent prepath =
+  let (pt0, pathelemacc) = prepath in
+  match pathelemacc with
+  | []                              -> (pt0, pt0 -@% pt0)
+  | LineTo(pt2) :: rest -> (
+    match rest with
+    | []                            -> (pt2, pt0)
+    | LineTo(pt1) :: _              -> (pt2, pt1)
+    | CubicBezierTo(_, _, pt1) :: _ -> (pt2, pt1))
+  | CubicBezierTo(_, pt3, pt4) :: _ -> (pt4, pt3)

@@ -95,7 +95,7 @@ is-pdf-mode-primitive: yes
 needs-reducef: yes
 name: "set-math-command"
 type: |
-  ~% (tCMD @-> tCTX @-> tCTX)
+  ~% (tICMD tMATH @-> tCTX @-> tCTX)
 
 params:
 - valuecmd
@@ -103,6 +103,21 @@ params:
 code: |
   let mcmd = get_math_command_func reducef valuecmd in
   Context(ctx, { ctxsub with math_command = mcmd; })
+
+---
+inst: PrimitiveSetCodeTextCommand
+is-pdf-mode-primitive: yes
+needs-reducef: yes
+name: "set-code-text-command"
+type: |
+  ~% (tICMD tS @-> tCTX @-> tCTX)
+
+params:
+- valuecmd
+- (ctx, ctxsub) : context
+code: |
+  let ctcmd = get_code_text_command_func reducef valuecmd in
+  Context(ctx, { ctxsub with code_text_command = ctcmd; })
 
 ---
 inst: BackendMathVariantCharDirect
@@ -595,6 +610,20 @@ code: |
   make_path (List.map (shift_path ptshift) pathlst)
 
 ---
+inst: PathRotate
+is-pdf-mode-primitive: yes
+name: "rotate-path"
+type: |
+  ~% (tPT @-> tFL @-> tPATH @-> tPATH)
+
+params:
+- ptcenter : point
+- theta : float
+- pathlst : path_value
+code: |
+  make_path (List.map (rotate_path ptcenter theta) pathlst)
+
+---
 inst: PathGetBoundingBox
 is-pdf-mode-primitive: yes
 name: "get-path-bbox"
@@ -686,6 +715,45 @@ params:
 - prepath : prepath
 code: |
   make_path ([prepath |> PrePath.close_with_bezier ptS ptT])
+
+---
+inst: PrePathStartingPoint
+is-pdf-mode-primitive: yes
+name: "starting-point"
+type: |
+  ~% (tPRP @-> tPT)
+
+params:
+- prepath : prepath
+code: |
+  make_point_value (prepath |> PrePath.starting_point)
+
+---
+inst: PrePathCurrentPoint
+is-pdf-mode-primitive: yes
+name: "current-point"
+type: |
+  ~% (tPRP @-> tPT)
+
+params:
+- prepath : prepath
+code: |
+  make_point_value (prepath |> PrePath.current_point)
+
+---
+inst: PrePathCurrentTangent
+is-pdf-mode-primitive: yes
+name: "current-tangent"
+type: |
+  ~% (tPRP @-> tPROD [tPT; tPT])
+
+params:
+- prepath : prepath
+code: |
+  let (ptend, ptstart) = PrePath.current_tangent prepath in
+  let value1 = make_point_value ptend in
+  let value2 = make_point_value ptstart in
+  Tuple([value1; value2])
 
 ---
 inst: HorzConcat
@@ -1074,7 +1142,7 @@ is-pdf-mode-primitive: yes
 needs-reducef: yes
 name: "get-initial-context"
 type: |
-  ~% (tLN @-> tCMD @-> tCTX)
+  ~% (tLN @-> tICMD tMATH @-> tCTX)
 
 params:
 - txtwid : length
@@ -1082,9 +1150,11 @@ params:
 code: |
   let ctx = Primitives.get_pdf_mode_initial_context txtwid in
   let mcmd = get_math_command_func reducef valuecmd in
+  let ctcmd = DefaultCodeTextCommand in
   let ctxsub =
     {
       math_command = mcmd;
+      code_text_command = ctcmd;
       dummy = ();
     }
   in
@@ -1919,6 +1989,25 @@ code: |
   let ilst = get_list get_int valueilst in
   let s = (List.map Uchar.of_int ilst) |> InternalText.of_uchar_list |> InternalText.to_utf8 in
   make_string s
+---
+inst: PrimitiveStringExplode
+is-pdf-mode-primitive: yes
+is-text-mode-primitive: yes
+name: "string-explode"
+type: |
+  ~% (tS @-> (tL tI))
+
+params:
+- str : string
+code: |
+  let ilst =
+    str
+    |> InternalText.of_utf8
+    |> InternalText.to_uchar_list
+    |> List.map Uchar.to_int
+  in
+  make_list make_int ilst
+
 
 ---
 inst: PrimitiveRegExpOfString
@@ -2108,6 +2197,20 @@ params:
 - grelem : graphics_element
 code: |
   make_graphics (GraphicD.shift_element vec grelem)
+
+---
+inst: PrimitiveRotateGraphics
+is-pdf-mode-primitive: yes
+name: "rotate-graphics"
+type: |
+  ~% (tPT @-> tFL @-> tGR @-> tGR)
+
+params:
+- c : point
+- t : float
+- grelem : graphics_element
+code: |
+  make_graphics (GraphicD.rotate_element c t grelem)
 
 ---
 inst: PrimtiveGetGraphicsBBox
@@ -2431,6 +2534,32 @@ params:
 - flt2 : float
 code: |
   make_float (atan2 flt1 flt2)
+
+---
+inst: FloatLogarithm
+is-pdf-mode-primitive: yes
+is-text-mode-primitive: yes
+name: "log"
+type: |
+  ~% (tFL @-> tFL)
+
+params:
+- flt : float
+code: |
+  make_float (log flt)
+
+---
+inst: FloatExponential
+is-pdf-mode-primitive: yes
+is-text-mode-primitive: yes
+name: "exp"
+type: |
+  ~% (tFL @-> tFL)
+
+params:
+- flt : float
+code: |
+  make_float (exp flt)
 
 ---
 inst: LengthPlus

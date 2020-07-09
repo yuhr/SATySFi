@@ -77,7 +77,7 @@ let ctx = HorzBox.({ ctx with math_char_class = mccls; }) in let (_, uchlst) = M
     ; inst "PrimitiveSetMathCommand"
         ~name:"set-math-command"
         ~type_:{|
-~% (tCMD @-> tCTX @-> tCTX)
+~% (tICMD tMATH @-> tCTX @-> tCTX)
 |}
         ~fields:[
         ]
@@ -90,6 +90,23 @@ let ctx = HorzBox.({ ctx with math_char_class = mccls; }) in let (_, uchlst) = M
         ~code:{|
 let mcmd = get_math_command_func reducef valuecmd in
 Context(ctx, { ctxsub with math_command = mcmd; })
+|}
+    ; inst "PrimitiveSetCodeTextCommand"
+        ~name:"set-code-text-command"
+        ~type_:{|
+~% (tICMD tS @-> tCTX @-> tCTX)
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "valuecmd";
+          param "(ctx, ctxsub)" ~type_:"context";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~needs_reducef:true
+        ~code:{|
+let ctcmd = get_code_text_command_func reducef valuecmd in
+Context(ctx, { ctxsub with code_text_command = ctcmd; })
 |}
     ; inst "BackendMathVariantCharDirect"
         ~name:"math-variant-char"
@@ -641,6 +658,22 @@ make_path (List.append pathlst1 pathlst2)
         ~code:{|
 make_path (List.map (shift_path ptshift) pathlst)
 |}
+    ; inst "PathRotate"
+        ~name:"rotate-path"
+        ~type_:{|
+~% (tPT @-> tFL @-> tPATH @-> tPATH)
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "ptcenter" ~type_:"point";
+          param "theta" ~type_:"float";
+          param "pathlst" ~type_:"path_value";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~code:{|
+make_path (List.map (rotate_path ptcenter theta) pathlst)
+|}
     ; inst "PathGetBoundingBox"
         ~name:"get-path-bbox"
         ~type_:{|
@@ -747,6 +780,51 @@ make_path ([prepath |> PrePath.close_with_line])
         ~is_pdf_mode_primitive:true
         ~code:{|
 make_path ([prepath |> PrePath.close_with_bezier ptS ptT])
+|}
+    ; inst "PrePathStartingPoint"
+        ~name:"starting-point"
+        ~type_:{|
+~% (tPRP @-> tPT)
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "prepath" ~type_:"prepath";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~code:{|
+make_point_value (prepath |> PrePath.starting_point)
+|}
+    ; inst "PrePathCurrentPoint"
+        ~name:"current-point"
+        ~type_:{|
+~% (tPRP @-> tPT)
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "prepath" ~type_:"prepath";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~code:{|
+make_point_value (prepath |> PrePath.current_point)
+|}
+    ; inst "PrePathCurrentTangent"
+        ~name:"current-tangent"
+        ~type_:{|
+~% (tPRP @-> tPROD [tPT; tPT])
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "prepath" ~type_:"prepath";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~code:{|
+let (ptend, ptstart) = PrePath.current_tangent prepath in
+let value1 = make_point_value ptend in
+let value2 = make_point_value ptstart in
+Tuple([value1; value2])
 |}
     ; inst "HorzConcat"
         ~name:"++"
@@ -1170,7 +1248,7 @@ make_horz (HorzBox.([HorzPure(PHGEmbeddedVert(wid, hgt, dpt, imvblst))]))
     ; inst "PrimitiveGetInitialContext"
         ~name:"get-initial-context"
         ~type_:{|
-~% (tLN @-> tCMD @-> tCTX)
+~% (tLN @-> tICMD tMATH @-> tCTX)
 |}
         ~fields:[
         ]
@@ -1183,9 +1261,11 @@ make_horz (HorzBox.([HorzPure(PHGEmbeddedVert(wid, hgt, dpt, imvblst))]))
         ~code:{|
 let ctx = Primitives.get_pdf_mode_initial_context txtwid in
 let mcmd = get_math_command_func reducef valuecmd in
+let ctcmd = DefaultCodeTextCommand in
 let ctxsub =
   {
     math_command = mcmd;
+    code_text_command = ctcmd;
     dummy = ();
   }
 in
@@ -2131,6 +2211,27 @@ let ilst = get_list get_int valueilst in
 let s = (List.map Uchar.of_int ilst) |> InternalText.of_uchar_list |> InternalText.to_utf8 in
 make_string s
 |}
+    ; inst "PrimitiveStringExplode"
+        ~name:"string-explode"
+        ~type_:{|
+~% (tS @-> (tL tI))
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "str" ~type_:"string";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~is_text_mode_primitive:true
+        ~code:{|
+let ilst =
+  str
+  |> InternalText.of_utf8
+  |> InternalText.to_uchar_list
+  |> List.map Uchar.to_int
+in
+make_list make_int ilst
+|}
     ; inst "PrimitiveRegExpOfString"
         ~name:"regexp-of-string"
         ~type_:{|
@@ -2344,6 +2445,22 @@ make_graphics grelem
         ~is_pdf_mode_primitive:true
         ~code:{|
 make_graphics (GraphicD.shift_element vec grelem)
+|}
+    ; inst "PrimitiveRotateGraphics"
+        ~name:"rotate-graphics"
+        ~type_:{|
+~% (tPT @-> tFL @-> tGR @-> tGR)
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "c" ~type_:"point";
+          param "t" ~type_:"float";
+          param "grelem" ~type_:"graphics_element";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~code:{|
+make_graphics (GraphicD.rotate_element c t grelem)
 |}
     ; inst "PrimtiveGetGraphicsBBox"
         ~name:"get-graphics-bbox"
@@ -2713,6 +2830,36 @@ make_float (atan flt1)
         ~is_text_mode_primitive:true
         ~code:{|
 make_float (atan2 flt1 flt2)
+|}
+    ; inst "FloatLogarithm"
+        ~name:"log"
+        ~type_:{|
+~% (tFL @-> tFL)
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "flt" ~type_:"float";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~is_text_mode_primitive:true
+        ~code:{|
+make_float (log flt)
+|}
+    ; inst "FloatExponential"
+        ~name:"exp"
+        ~type_:{|
+~% (tFL @-> tFL)
+|}
+        ~fields:[
+        ]
+        ~params:[
+          param "flt" ~type_:"float";
+        ]
+        ~is_pdf_mode_primitive:true
+        ~is_text_mode_primitive:true
+        ~code:{|
+make_float (exp flt)
 |}
     ; inst "LengthPlus"
         ~name:"+'"
